@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MeetingVerifier</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0e1117;
+      color: #e8e6e3;
+      width: 320px;
+      padding: 15px;
+    }
+    h2 {
+      color: #6aa84f;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: #6aa84f;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #4e7839;
+    }
+    .metrics {
+      background: #1c1f26;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    .metric-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .metric-label {
+      color: #aaa;
+    }
+    .metric-value {
+      font-weight: bold;
+    }
+    .verdict {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .real { background-color: #2e8b57; color: #fff; }
+    .fake { background-color: #b22222; color: #fff; }
+
+    /* 🎨 Heatmap display section */
+    #heatmapImg {
+      display: none;
+      width: 100%;
+      border-radius: 8px;
+      margin-top: 12px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.8s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .heatmap-legend {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #ccc;
+      margin-top: 5px;
+      background: #1c1f26;
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
+
+    .legend-color {
+      display: inline-block;
+      width: 30px;
+      height: 10px;
+      border-radius: 3px;
+    }
+    .legend-red { background-color: #ff4d4d; }
+    .legend-blue { background-color: #3399ff; }
+  </style>
+</head>
+<body>
+  <h2>MeetingVerifier 🔍</h2>
+
+  <label for="username">User Name:</label>
+  <input type="text" id="username" style="width:100%; padding:5px; margin-top:4px; border-radius:4px; border:none;" placeholder="Enter your name">
+
+  <button id="btnEnroll">Enroll</button>
+  <button id="btnVerify">Verify</button>
+  <button id="btnShowHeatmap">🎨 Show Heatmap</button>
+  <button id="btnToggleHeatmap">Toggle Heatmap</button>
+  <button id="btnReset">Reset</button>
+
+  <div id="statusText" style="margin-top:10px; text-align:center; color:#bbb;">Status: Not Enrolled</div>
+
+  <div class="metrics">
+    <div class="metric-line"><span class="metric-label">Face Similarity:</span> <span id="faceSim" class="metric-value">--</span></div>
+    <div class="metric-line"><span class="metric-label">Liveness Score:</span> <span id="liveScore" class="metric-value">--</span></div>
+    <div class="metric-line"><span class="metric-label">Final Confidence:</span> <span id="finalConf" class="metric-value">--</span></div>
+  </div>
+
+  <div id="verdictText" class="verdict">Verdict: --</div>
+
+  <img id="heatmapImg" alt="Heatmap Visualization">
+  <div class="heatmap-legend" id="heatmapLegend">
+    <span><span class="legend-color legend-blue"></span> Flat / Fake</span>
+    <span><span class="legend-color legend-red"></span> Textured / Real</span>
+  </div>
+
+  <div id="result" style="margin-top:8px; text-align:center; font-size:13px; color:#ccc;"></div>
+
+  <script src="popup.js"></script>
+  <script>
+    // Automatically show legend when heatmap image is visible
+    const heatmapImg = document.getElementById("heatmapImg");
+    const legend = document.getElementById("heatmapLegend");
+    const observer = new MutationObserver(() => {
+      if (heatmapImg.style.display === "block") legend.style.display = "flex";
+      else legend.style.display = "none";
+    });
+    observer.observe(heatmapImg, { attributes: true, attributeFilter: ["style"] });
+  </script>
+</body>
+</html>

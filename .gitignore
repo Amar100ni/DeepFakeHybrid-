@@ -1,0 +1,47 @@
+# ── Python ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environment ─────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── ONNX / Model files (too large for Git) ──────
+# To share models, use Git LFS or upload separately
+server/models/*.onnx
+server/models/*.pkl
+client/models/*.onnx
+
+# ── Temp / captured data ─────────────────────────
+client/temp_data/
+server/data/face_*.npy
+server/data/thresh_*.npy
+
+# ── Enrolled faces (private biometric data) ──────
+enrolled_data/
+
+# ── FFmpeg bundle (too large for Git) ────────────
+ffmpeg-*/
+*.zip
+
+# ── OS / Editor ──────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Logs / debug ─────────────────────────────────
+*.log
+*.err
+
+# ── Old gitignore (misnamed) ──────────────────────
+.gitignore.txt
