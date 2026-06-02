@@ -4,9 +4,9 @@
   const HEATMAP_URL  = "http://127.0.0.1:5000/heatmap";        // Flask /heatmap
   const ID_URL_BASE  = "http://127.0.0.1:7000";                // Identity Manager base
 
-  const CAPTURE_WINDOW_SEC = 2.5;
-  const ENROLL_SEC = 3.0;                // enrollment clip length
-  const FRAME_RATE = 8;
+  const CAPTURE_WINDOW_SEC = 1.5;
+  const ENROLL_SEC = 2.0;
+  const FRAME_RATE = 6;
   const WIDTH = 224, HEIGHT = 224;
 
   console.log("[MeetingVerifier] content_script loaded");
@@ -243,8 +243,11 @@
     let tick = 0;
     while (true) {
       try {
-        const frames = await captureFrames(video);
-        const audio_b64 = await captureAudioFromVideo(video, CAPTURE_WINDOW_SEC);
+        // Capture frames and audio concurrently for speed
+        const [frames, audio_b64] = await Promise.all([
+          captureFrames(video),
+          captureAudioFromVideo(video, CAPTURE_WINDOW_SEC)
+        ]);
 
         // send to analyzer (deepfake)
         const payload = { frames, audio: audio_b64, motion_flag: true };
@@ -298,7 +301,7 @@
         console.warn("[MeetingVerifier] loop error", e);
         setVerdict("⚠️ Connection Lost", null);
       }
-      await sleep(800);
+      await sleep(400);
     }
   }
 

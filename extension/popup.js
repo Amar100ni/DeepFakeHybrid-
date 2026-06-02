@@ -51,31 +51,69 @@ async function enrollUser() {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
-      func: async (name) => {
+      func: async (name, identityUrl) => {
         const WIDTH = 224, HEIGHT = 224;
-        const video = document.querySelector("video");
-        if (!video) return "No video found";
 
+        // Find the largest visible video (remote participant)
+        const videos = Array.from(document.querySelectorAll("video")).filter(v => {
+          const r = v.getBoundingClientRect();
+          return r.width > 80 && r.height > 80;
+        });
+        videos.sort((a, b) => (b.videoWidth * b.videoHeight) - (a.videoWidth * a.videoHeight));
+        const video = videos[0];
+        if (!video) return { error: "No video found on this page" };
+
+        // Capture 5 frames over 1.5 seconds, pick the sharpest one
         const canvas = document.createElement("canvas");
         canvas.width = WIDTH; canvas.height = HEIGHT;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, WIDTH, HEIGHT);
+        const offscreen = document.createElement("canvas");
+        offscreen.width = WIDTH; offscreen.height = HEIGHT;
+        const octx = offscreen.getContext("2d");
 
-        const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.7));
-        const buf = await blob.arrayBuffer();
-        const face_b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        let bestFrame = null;
+        let bestSharpness = -1;
 
-        const res = await fetch(`${IDENTITY_URL}/enroll`, {
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 300));
+          ctx.drawImage(video, 0, 0, WIDTH, HEIGHT);
+
+          // Measure sharpness using pixel variance
+          const data = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
+          let sum = 0, sumSq = 0, n = data.length / 4;
+          for (let j = 0; j < data.length; j += 4) {
+            const gray = 0.299 * data[j] + 0.587 * data[j+1] + 0.114 * data[j+2];
+            sum += gray; sumSq += gray * gray;
+          }
+          const variance = (sumSq / n) - (sum / n) ** 2;
+
+          const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.85));
+          const buf = await blob.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+          if (variance > bestSharpness) {
+            bestSharpness = variance;
+            bestFrame = b64;
+          }
+        }
+
+        if (!bestFrame) return { error: "Could not capture a clear frame" };
+
+        const res = await fetch(`${identityUrl}/enroll`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, face: face_b64 })
+          body: JSON.stringify({ name, face: bestFrame })
         });
         return await res.json();
       },
-      args: [name]
+      args: [name, IDENTITY_URL]
     }, (res) => {
-      const result = res[0]?.result || res[0];
-      document.getElementById("result").textContent = "Enrollment complete";
+      const result = res?.[0]?.result || res?.[0];
+      if (result?.error) {
+        document.getElementById("result").textContent = `Enroll failed: ${result.error}`;
+      } else {
+        document.getElementById("result").textContent = "✅ Enrolled successfully!";
+      }
       updateStatus();
       console.log("Enrollment Result:", result);
     });
@@ -91,7 +129,7 @@ async function verifyUser() {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
-      func: async (name) => {
+      func: async (name, identityUrl) => {
         const WIDTH = 224, HEIGHT = 224;
         const video = document.querySelector("video");
         if (!video || video.readyState < 2) return { error: "No valid video frame" };
@@ -106,7 +144,7 @@ async function verifyUser() {
         const buf = await blob.arrayBuffer();
         const face_b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
 
-        const res = await fetch(`${IDENTITY_URL}/verify`, {
+        const res = await fetch(`${identityUrl}/verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, face: face_b64 })
@@ -115,22 +153,27 @@ async function verifyUser() {
         const data = await res.json();
         return data;
       },
-      args: [name]
+      args: [name, IDENTITY_URL]
     }, (res) => {
       const data = res[0]?.result || res[0];
-      if (!data) {
-        document.getElementById("result").textContent = "Verification failed";
+      if (!data || data.error) {
+        document.getElementById("result").textContent =
+          `Verification failed: ${data?.error || "unknown error"}`;
         return;
       }
 
       // 🧾 Update UI metrics
-      document.getElementById("faceSim").textContent = data.face_similarity ?? "--";
-      document.getElementById("liveScore").textContent = data.liveness_score ?? "--";
-      document.getElementById("finalConf").textContent = data.final_confidence ?? "--";
+      document.getElementById("faceSim").textContent =
+        data.face_similarity != null ? data.face_similarity.toFixed(3) : "--";
+      document.getElementById("liveScore").textContent =
+        data.liveness_score != null ? data.liveness_score.toFixed(3) : "--";
+      document.getElementById("finalConf").textContent =
+        data.final_confidence != null ? data.final_confidence.toFixed(3) : "--";
 
+      const verdict = data.verdict || "--";
       const verdictBox = document.getElementById("verdictText");
-      verdictBox.textContent = `Verdict: ${data.verdict}`;
-      verdictBox.className = "verdict " + (data.verdict === "REAL" ? "real" : "fake");
+      verdictBox.textContent = `Verdict: ${verdict}`;
+      verdictBox.className = "verdict " + (verdict === "REAL" ? "real" : verdict === "FAKE" ? "fake" : "");
 
       document.getElementById("result").textContent = "Verification Complete";
       console.log("Verification Result:", data);
